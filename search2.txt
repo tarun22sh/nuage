@@ -1,0 +1,66 @@
+import sys
+import re
+from datetime import datetime,tzinfo,timedelta
+class Zone(tzinfo):
+     def __init__(self,offset,isdst,name):
+          self.offset = offset
+          self.isdst = isdst
+          self.name = name
+     def utcoffset(self, dt):
+          return timedelta(hours=self.offset) + self.dst(dt)
+     def dst(self, dt):
+          return timedelta(hours=1) if self.isdst else timedelta(0)
+     def tzname(self,dt):
+          return self.name
+
+GMT = Zone(0,False,'GMT')
+EST=Zone(-5,False,'EST')
+PST = Zone(-7,False,'PST')
+
+pattern=sys.argv[1]
+#Nov 28 19:18:48
+date_format1='%b %d %H:%M:%S'
+date_format='%d/%b/%Y:%H:%M:%S'
+first=1
+occur=0
+avg_time=0
+with open("frontend-service.log","r") as f:
+     read_data = f.read()
+     for line in read_data.splitlines():
+          if pattern in line:
+                occur+=1
+                temp=line.split(' ')
+                date1=temp[0]+" "+temp[1]+" "+temp[2]
+                date2=temp[9].split('[')[1].split(']')[0]
+                t1 = datetime.strptime(date1,date_format1)
+                gmt1 = t1.replace(tzinfo=GMT)
+                est1 = gmt1.astimezone(PST)
+                
+                t2 = datetime.strptime(date2,date_format)
+                gmt2 = t2.replace(tzinfo=GMT)
+                est2 = gmt2.astimezone(PST)
+ #               print(gmt1.strftime(date_format1),est1.strftime(date_format1),gmt2,est2)
+                strcount=len(temp)
+                i=3
+                newline=est1.strftime(date_format1)
+                while i < strcount:
+                    if i==9:
+                        newline=newline+"["+str(est2)+"]"
+                    else:
+                        newline=newline+" "+temp[i]
+                    i+=1
+                if first==1:
+                    with open('results.txt','w') as z:
+                        z.write(date2)
+                        z.close()
+                        first=0
+                else:
+                    with open('results.txt','r') as z:
+                        d1=z.read()
+                        prev_date=datetime.strptime(d1,date_format)
+                        diff_time=(t2-prev_date).total_seconds()
+                        avg_time=diff_time/occur
+                        print(newline+"     --------"+str(occur)+"     "+str(avg_time))
+print('Total occurances of '+str(pattern)+' are '+str(occur))
+
+print('Average time '+str(avg_time))
